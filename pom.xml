@@ -23,7 +23,7 @@
 
 		<commonscollections>3.2.1</commonscollections>
 		<commonslang>2.6</commonslang>
-		<elasticsearch>1.1.1</elasticsearch>
+		<elasticsearch>1.0.2</elasticsearch>
         <springdata.commons>1.8.1.RELEASE</springdata.commons>
 
 	</properties>
@@ -133,8 +133,27 @@
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>wagon-maven-plugin</artifactId>
 			</plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                </configuration>
+            </plugin>
 		</plugins>
 	</build>
+    <distributionManagement>
+        <repository>
+            <id>redsys-repo-releases</id>
+            <name>redsys-repo-releases</name>
+            <url>${releases.url}</url>
+        </repository>
+        <snapshotRepository>
+            <id>redsys-repo-snapshots</id>
+            <name>redsys-repo-snapshots</name>
+            <url>${snapshots.url}</url>
+        </snapshotRepository>
+    </distributionManagement>
 
 	<developers>
 		<developer>
