@@ -31,6 +31,7 @@ import java.lang.reflect.Method;
 import java.util.*;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.elasticsearch.action.ListenableActionFuture;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -103,6 +104,7 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 	private Client client;
 	private ElasticsearchConverter elasticsearchConverter;
 	private ResultsMapper resultsMapper;
+    private String searchTimeout;
 
 	public ElasticsearchTemplate(Client client) {
 		this(client, null, null);
@@ -127,7 +129,11 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 		this.resultsMapper = (resultsMapper == null) ? new DefaultResultMapper(this.elasticsearchConverter.getMappingContext()) : resultsMapper;
 	}
 
-	@Override
+    public void setSearchTimeout(String searchTimeout) {
+        this.searchTimeout = searchTimeout;
+    }
+
+    @Override
 	public <T> boolean createIndex(Class<T> clazz) {
 		return createIndexIfNotCreated(clazz);
 	}
@@ -271,7 +277,7 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 		if (query.getFilter() != null) {
 			request.setPostFilter(query.getFilter());
 		}
-		SearchResponse response = request.execute().actionGet();
+		SearchResponse response = getSearchResponse(request.execute());
 		return extractIds(response);
 	}
 
@@ -294,8 +300,8 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 		if (elasticsearchFilter != null)
 			searchRequestBuilder.setPostFilter(elasticsearchFilter);
 
-		SearchResponse response = searchRequestBuilder
-				.execute().actionGet();
+		SearchResponse response = getSearchResponse(searchRequestBuilder
+				.execute());
 		return resultsMapper.mapResults(response, clazz, criteriaQuery.getPageable());
 	}
 
@@ -306,7 +312,7 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 
 	@Override
 	public <T> FacetedPage<T> queryForPage(StringQuery query, Class<T> clazz, SearchResultMapper mapper) {
-		SearchResponse response = prepareSearch(query, clazz).setQuery(query.getSource()).execute().actionGet();
+		SearchResponse response = getSearchResponse(prepareSearch(query, clazz).setQuery(query.getSource()).execute());
 		return mapper.mapResults(response, clazz, query.getPageable());
 	}
 
@@ -504,20 +510,20 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 		if (noFields) {
 			requestBuilder.setNoFields();
 		}
-		return requestBuilder.execute().actionGet().getScrollId();
+		return getSearchResponse(requestBuilder.execute()).getScrollId();
 	}
 
 	@Override
 	public <T> Page<T> scroll(String scrollId, long scrollTimeInMillis, Class<T> clazz) {
-		SearchResponse response = client.prepareSearchScroll(scrollId)
-				.setScroll(TimeValue.timeValueMillis(scrollTimeInMillis)).execute().actionGet();
+		SearchResponse response = getSearchResponse(client.prepareSearchScroll(scrollId)
+				.setScroll(TimeValue.timeValueMillis(scrollTimeInMillis)).execute());
 		return resultsMapper.mapResults(response, clazz, null);
 	}
 
 	@Override
 	public <T> Page<T> scroll(String scrollId, long scrollTimeInMillis, SearchResultMapper mapper) {
-		SearchResponse response = client.prepareSearchScroll(scrollId)
-				.setScroll(TimeValue.timeValueMillis(scrollTimeInMillis)).execute().actionGet();
+		SearchResponse response = getSearchResponse(client.prepareSearchScroll(scrollId)
+				.setScroll(TimeValue.timeValueMillis(scrollTimeInMillis)).execute());
 		return mapper.mapResults(response, null, null);
 	}
 
@@ -580,7 +586,7 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 			requestBuilder.setBoostTerms(query.getBoostTerms());
 		}
 
-		SearchResponse response = requestBuilder.execute().actionGet();
+		SearchResponse response = getSearchResponse(requestBuilder.execute());
 		return resultsMapper.mapResults(response, clazz, query.getPageable());
 	}
 
@@ -611,10 +617,15 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 			}
 		}
 
-		return searchRequest.setQuery(searchQuery.getQuery()).execute().actionGet();
+        ListenableActionFuture<SearchResponse> response = searchRequest.setQuery(searchQuery.getQuery()).execute();
+        return getSearchResponse(response);
 	}
 
-	private <T> boolean createIndexIfNotCreated(Class<T> clazz) {
+    private SearchResponse getSearchResponse(ListenableActionFuture<SearchResponse> response) {
+        return searchTimeout == null ? response.actionGet() : response.actionGet(searchTimeout);
+    }
+
+    private <T> boolean createIndexIfNotCreated(Class<T> clazz) {
 		return indexExists(getPersistentEntityFor(clazz).getIndexName()) || createIndexWithSettings(clazz);
 	}
 
