@@ -325,8 +325,10 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 
 	@Override
 	public <T> long count(SearchQuery searchQuery, Class<T> clazz) {
-		String indexName[] = isNotEmpty(searchQuery.getIndices()) ? searchQuery.getIndices().toArray(new String[searchQuery.getIndices().size()]) : retrieveIndexNameFromPersistentEntity(clazz);
-		String types[] = isNotEmpty(searchQuery.getTypes()) ? searchQuery.getTypes().toArray(new String[searchQuery.getTypes().size()]) : retrieveTypeFromPersistentEntity(clazz);
+		String indexName[] = isNotEmpty(searchQuery.getIndices()) ? searchQuery.getIndices().toArray(
+                new String[searchQuery.getIndices().size()]) : retrieveIndexNameFromPersistentEntity(clazz);
+		String types[] = isNotEmpty(searchQuery.getTypes()) ? searchQuery.getTypes().toArray(new String[searchQuery.getTypes().size()]) : retrieveTypeFromPersistentEntity(
+                clazz);
 
 		Assert.notNull(indexName, "No index defined for Query");
 
@@ -630,8 +632,7 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
              }
         }
 
-        ListenableActionFuture<SearchResponse> response = searchRequest.setQuery(searchQuery.getQuery()).execute();
-        return getSearchResponse(response);		return searchRequest.setQuery(searchQuery.getQuery()).execute().actionGet();
+        return getSearchResponse(searchRequest.setQuery(searchQuery.getQuery()).execute());
 	}
 
     private SearchResponse getSearchResponse(ListenableActionFuture<SearchResponse> response) {
