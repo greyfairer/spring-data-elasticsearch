@@ -65,6 +65,7 @@ import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AbstractAggregationBuilder;
 import org.elasticsearch.search.facet.FacetBuilder;
 import org.elasticsearch.search.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
@@ -256,7 +257,13 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 		return mapper.mapResults(response, clazz, query.getPageable());
 	}
 
-	@Override
+    @Override
+    public <T> T query(SearchQuery query, ResultsExtractor<T> resultsExtractor) {
+        SearchResponse response = doSearch(prepareSearch(query), query);
+        return resultsExtractor.extract(response);
+    }
+
+    @Override
 	public <T> List<T> queryForList(CriteriaQuery query, Class<T> clazz) {
 		return queryForPage(query, clazz).getContent();
 	}
@@ -617,8 +624,14 @@ public class ElasticsearchTemplate implements ElasticsearchOperations, Applicati
 			}
 		}
 
+        if(CollectionUtils.isNotEmpty(searchQuery.getAggregations())){
+             for(AbstractAggregationBuilder aggregationBuilder : searchQuery.getAggregations()){
+                 searchRequest.addAggregation(aggregationBuilder);
+             }
+        }
+
         ListenableActionFuture<SearchResponse> response = searchRequest.setQuery(searchQuery.getQuery()).execute();
-        return getSearchResponse(response);
+        return getSearchResponse(response);		return searchRequest.setQuery(searchQuery.getQuery()).execute().actionGet();
 	}
 
     private SearchResponse getSearchResponse(ListenableActionFuture<SearchResponse> response) {
